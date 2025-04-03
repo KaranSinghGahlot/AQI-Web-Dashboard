@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Quality Monitoring Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js & Plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+
+    <!-- Flatpickr for Date & Time Picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-[90%] mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <h1 class="text-4xl font-bold text-gray-800 mb-6 text-center">Air Quality Monitoring</h1>
+    
+        <!-- Filters -->
+        <div class="flex flex-wrap justify-center gap-6 mb-6">
+            <div class="flex items-center space-x-2">
+                <label class="font-semibold">Start Date & Time:</label>
+                <input type="text" id="start-time" class="border p-2 rounded-lg w-48">
+            </div>
+    
+            <div class="flex items-center space-x-2">
+                <label class="font-semibold">End Date & Time:</label>
+                <input type="text" id="end-time" class="border p-2 rounded-lg w-48">
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <label class="font-semibold">Gas Type:</label>
+                <select id="gas-type" class="border p-2 rounded-lg w-32">
+                    <option value="NOX">NOX</option>
+                    <option value="NO">NO</option>
+                    <option value="NO2">NO2</option>
+                </select>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <label class="font-semibold">Min Value:</label>
+                <input type="number" id="min-value" class="border p-2 rounded-lg w-24" placeholder="Min">
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <label class="font-semibold">Max Value:</label>
+                <input type="number" id="max-value" class="border p-2 rounded-lg w-24" placeholder="Max">
+            </div>
+
+            <button id="fetch-data" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">Fetch Data</button>
+        </div>
+    
+        <!-- Graph Area -->
+        <div class="w-full flex justify-center">
+            <div class="w-[90%] h-96 bg-gray-50 p-4 rounded-xl shadow">
+                <canvas id="aqiChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        flatpickr("#start-time", { enableTime: true, dateFormat: "Y-m-d H:i" });
+        flatpickr("#end-time", { enableTime: true, dateFormat: "Y-m-d H:i" });
+
+        let chartInstance;
+        const fetchDataButton = document.getElementById("fetch-data");
+
+        fetchDataButton.addEventListener("click", async function () {
+            const startTime = document.getElementById("start-time").value;
+            const endTime = document.getElementById("end-time").value;
+            const gasType = document.getElementById("gas-type").value;
+            const minValue = parseFloat(document.getElementById("min-value").value) || null;
+            const maxValue = parseFloat(document.getElementById("max-value").value) || null;
+
+            if (!startTime || !endTime) {
+                alert("Please select start and end time!");
+                return;
+            }
+
+            fetchDataButton.disabled = true;
+            fetchDataButton.innerText = "Fetching...";
+
+            try {
+                const response = await fetch(`/api/data/aggregated?start=${startTime}&end=${endTime}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+
+                let timestamps = data.data.map(d => d.time);
+                let values = data.data.map(d => d[`${gasType} Conc`]);
+
+                // Apply min-max filtering
+                if (minValue !== null) values = values.map((v, i) => (v >= minValue ? v : null));
+                if (maxValue !== null) values = values.map((v, i) => (v <= maxValue ? v : null));
+
+                // Remove null values from timestamps and values
+                let filteredTimestamps = [];
+                let filteredValues = [];
+                timestamps.forEach((time, index) => {
+                    if (values[index] !== null) {
+                        filteredTimestamps.push(time);
+                        filteredValues.push(values[index]);
+                    }
+                });
+
+                // Render Chart
+                if (!chartInstance) {
+                    const ctx = document.getElementById("aqiChart").getContext("2d");
+                    chartInstance = new Chart(ctx, {
+                        type: "line",
+                        data: {
+                            labels: filteredTimestamps,
+                            datasets: [{ 
+                                label: gasType,
+                                data: filteredValues, 
+                                borderColor: "red", 
+                                fill: false 
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: "index", intersect: false },
+                            plugins: {
+                                zoom: { pan: { enabled: true }, zoom: { enabled: true } }
+                            }
+                        }
+                    });
+                } else {
+                    chartInstance.data.labels = filteredTimestamps;
+                    chartInstance.data.datasets[0].data = filteredValues;
+                    chartInstance.update();
+                }
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            } finally {
+                fetchDataButton.disabled = false;
+                fetchDataButton.innerText = "Fetch Data";
+            }
+        });
+    </script>
+</body>
+</html>

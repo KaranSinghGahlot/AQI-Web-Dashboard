@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Quality Monitoring Dashboard</title>
+    
+    <!-- Tailwind CSS for Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js for Graphs & Zoom Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+
+    <!-- Flatpickr for Date & Time Picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-7xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+        <h1 class="text-4xl font-bold text-gray-800 mb-6 text-center">Air Quality Monitoring</h1>
+
+        <!-- Filters -->
+        <div class="flex flex-wrap justify-between items-center mb-6">
+            <div class="flex items-center space-x-2">
+                <label class="font-semibold">Start Date & Time:</label>
+                <input type="text" id="start-time" class="border p-2 rounded-lg w-48">
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <label class="font-semibold">End Date & Time:</label>
+                <input type="text" id="end-time" class="border p-2 rounded-lg w-48">
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <label class="font-semibold">Aggregation:</label>
+                <select id="aggregation" class="border p-2 rounded-lg w-32">
+                    <option value="raw">Raw</option>
+                    <option value="minutely">Minutely</option>
+                    <option value="hourly">Hourly</option>
+                    <option value="daily" selected>Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+
+            <button id="fetch-data" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">Fetch Data</button>
+        </div>
+
+        <!-- Graph Area - More Spacious -->
+        <div class="w-full h-[500px]">
+            <canvas id="aqiChart"></canvas>
+        </div>
+
+        <!-- Statistics Section - More Organized -->
+        <div class="mt-6 p-6 bg-gray-200 rounded-lg">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Statistics</h2>
+            <div class="grid grid-cols-3 gap-4 text-lg">
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold text-red-600">NOX Concentration</h3>
+                    <p><strong>Min:</strong> <span id="nox-min">--</span></p>
+                    <p><strong>Max:</strong> <span id="nox-max">--</span></p>
+                    <p><strong>Mean:</strong> <span id="nox-mean">--</span></p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold text-blue-600">NO Concentration</h3>
+                    <p><strong>Min:</strong> <span id="no-min">--</span></p>
+                    <p><strong>Max:</strong> <span id="no-max">--</span></p>
+                    <p><strong>Mean:</strong> <span id="no-mean">--</span></p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold text-green-600">NO2 Concentration</h3>
+                    <p><strong>Min:</strong> <span id="no2-min">--</span></p>
+                    <p><strong>Max:</strong> <span id="no2-max">--</span></p>
+                    <p><strong>Mean:</strong> <span id="no2-mean">--</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Flatpickr (Time Picker)
+        flatpickr("#start-time", { enableTime: true, dateFormat: "Y-m-d H:i" });
+        flatpickr("#end-time", { enableTime: true, dateFormat: "Y-m-d H:i" });
+
+        let chartInstance;
+
+        document.getElementById("fetch-data").addEventListener("click", function () {
+            const startTime = document.getElementById("start-time").value;
+            const endTime = document.getElementById("end-time").value;
+            const aggregation = document.getElementById("aggregation").value;
+
+            if (!startTime || !endTime) {
+                alert("Please select start and end time!");
+                return;
+            }
+
+            fetch(`/api/data/aggregated?start=${startTime}&end=${endTime}&agg=${aggregation}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert("Error: " + data.error);
+                        return;
+                    }
+
+                    // Extract Data for Chart
+                    const timestamps = data.data.map(d => d.time);
+                    const nox = data.data.map(d => d["NOX Conc"]);
+                    const no = data.data.map(d => d["NO Conc"]);
+                    const no2 = data.data.map(d => d["NO2 Conc"]);
+
+                    // Update Statistics
+                    document.getElementById("nox-min").innerText = data.statistics["NOX Conc"].min.toFixed(2);
+                    document.getElementById("nox-max").innerText = data.statistics["NOX Conc"].max.toFixed(2);
+                    document.getElementById("nox-mean").innerText = data.statistics["NOX Conc"].mean.toFixed(2);
+
+                    document.getElementById("no-min").innerText = data.statistics["NO Conc"].min.toFixed(2);
+                    document.getElementById("no-max").innerText = data.statistics["NO Conc"].max.toFixed(2);
+                    document.getElementById("no-mean").innerText = data.statistics["NO Conc"].mean.toFixed(2);
+
+                    document.getElementById("no2-min").innerText = data.statistics["NO2 Conc"].min.toFixed(2);
+                    document.getElementById("no2-max").innerText = data.statistics["NO2 Conc"].max.toFixed(2);
+                    document.getElementById("no2-mean").innerText = data.statistics["NO2 Conc"].mean.toFixed(2);
+
+                    // Update Chart
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+                    
+                    const ctx = document.getElementById("aqiChart").getContext("2d");
+                    chartInstance = new Chart(ctx, {
+                        type: "line",
+                        data: {
+                            labels: timestamps,
+                            datasets: [
+                                {
+                                    label: "NOX Concentration",
+                                    data: nox,
+                                    borderColor: "red",
+                                    fill: false,
+                                },
+                                {
+                                    label: "NO Concentration",
+                                    data: no,
+                                    borderColor: "blue",
+                                    fill: false,
+                                },
+                                {
+                                    label: "NO2 Concentration",
+                                    data: no2,
+                                    borderColor: "green",
+                                    fill: false,
+                                },
+                            ],
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { title: { display: true, text: "Time" } },
+                                y: { title: { display: true, text: "Concentration" } },
+                            },
+                            plugins: {
+                                zoom: {
+                                    pan: { enabled: true, mode: "xy" },
+                                    zoom: { enabled: true, mode: "xy" }
+                                }
+                            }
+                        },
+                    });
+                })
+                .catch(error => console.error("Error fetching data:", error));
+        });
+    </script>
+</body>
+</html>
