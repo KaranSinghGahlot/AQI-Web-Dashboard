@@ -5,7 +5,7 @@ from datetime import datetime, time, timedelta
 import plotly.graph_objects as go
 
 # --- Load and Prepare Data ---
-BASE_DIR = r"C:\Users\ajmer\OneDrive\Desktop\NPL Project\AQI Web Dashboard\data"
+BASE_DIR = r"C:\Users\ajmer\OneDrive\Desktop\NPL Project\AQI Web Dashboard\data"   
 DATA_FILE = os.path.join(BASE_DIR, "2025 Merged Data.xlsx")
 
 df = pd.read_excel(DATA_FILE, engine="openpyxl")
