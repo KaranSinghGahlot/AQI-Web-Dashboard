@@ -5,8 +5,15 @@ from datetime import datetime, time, timedelta
 import plotly.graph_objects as go
 
 # --- Load and Prepare Data ---
-BASE_DIR = r"C:\Users\ajmer\OneDrive\Desktop\NPL Project\AQI Web Dashboard\data"   
-DATA_FILE = os.path.join(BASE_DIR, "2025 Merged Data.xlsx")
+#BASE_DIR = r"C:\Users\ajmer\OneDrive\Desktop\NPL Project\AQI Web Dashboard\data"   
+#DATA_FILE = os.path.join(BASE_DIR, "2025 Merged Data.xlsx")
+
+DATA_URL = "https://docs.google.com/spreadsheets/d/1QrNneGLNI6mLfSufYULjXBe-f88BYAv4/edit?gid=1028726055#gid=1028726055"
+@st.cache_data
+def load_data():
+    return pd.read_excel(DATA_URL, engine="openpyxl")
+
+df = load_data()
 
 df = pd.read_excel(DATA_FILE, engine="openpyxl")
 df['time'] = pd.to_datetime(df['time'], errors='coerce')
