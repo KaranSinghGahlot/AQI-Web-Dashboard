@@ -8,20 +8,12 @@ import plotly.graph_objects as go
 #BASE_DIR = r"C:\Users\ajmer\OneDrive\Desktop\NPL Project\AQI Web Dashboard\data"   
 #DATA_FILE = os.path.join(BASE_DIR, "2025 Merged Data.xlsx")
 
-import requests
+DATA_URL = "https://docs.google.com/spreadsheets/d/1QrNneGLNI6mLfSufYULjXBe-f88BYAv4/edit?gid=1028726055#gid=1028726055"
+@st.cache_data
+def load_data():
+    return pd.read_excel(DATA_URL, engine="openpyxl")
 
-# GitHub Raw URL of the file
-GITHUB_FILE_URL = "https://raw.githubusercontent.com/KaranSinghGahlot/AQI-Web-Dashboard/main/data/2025%20Merged%20Data.xlsx"
-LOCAL_FILE_PATH = "2025_Merged_Data.xlsx"
-
-# Download file if not already present
-if not os.path.exists(LOCAL_FILE_PATH):
-    response = requests.get(GITHUB_FILE_URL)
-    with open(LOCAL_FILE_PATH, "wb") as file:
-        file.write(response.content)
-
-# Load the data
-df = pd.read_excel(LOCAL_FILE_PATH, engine="openpyxl")
+df = load_data()
 
 #df = pd.read_excel(DATA_FILE, engine="openpyxl")
 df['time'] = pd.to_datetime(df['time'], errors='coerce')
